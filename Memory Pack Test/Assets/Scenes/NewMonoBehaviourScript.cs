@@ -1,4 +1,5 @@
 ﻿using MemoryPack;
+using System;
 using System.Buffers;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -26,7 +27,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
     private void Update()
     {
-        参考Cache();
+        参考CacheRent();
     }
 
     void 参考()
@@ -46,7 +47,22 @@ public class NewMonoBehaviourScript : MonoBehaviour
         for (int i = 0; i < 10000; i++)
         {
             MemoryPackSerializer.Serialize(writer, data);
-            var data2 = MemoryPackSerializer.Deserialize<Data>(writer.WrittenSpan);
+            var data2 = MemoryPackSerializer.Deserialize<Data>(writer.WrittenSpan);// .ToArray()才与下面等价，用于网络通信
+            writer.Clear();
+        }
+        Profiler.EndSample();
+    }
+
+    void 参考CacheRent()
+    {
+        Profiler.BeginSample(nameof(参考Cache));
+        for (int i = 0; i < 10000; i++)
+        {
+            MemoryPackSerializer.Serialize(writer, data);
+            byte[] rentedArray = ArrayPool<byte>.Shared.Rent(writer.WrittenSpan.Length);
+            writer.WrittenSpan.CopyTo(rentedArray);
+            var data2 = MemoryPackSerializer.Deserialize<Data>(rentedArray);
+            ArrayPool<byte>.Shared.Return(rentedArray);
             writer.Clear();
         }
         Profiler.EndSample();
